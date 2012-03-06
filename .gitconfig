@@ -1,0 +1,9 @@
+[user]
+	; name =
+	; email =
+
+[core]
+	editor = vim
+
+[color]
+	ui = true
