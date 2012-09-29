@@ -1,8 +1,8 @@
 #local return_status="%(?..%{$fg[100]%} ↵ %?)"
-local time="$BG[232]$FG[000] $BG[233] ⌚ $FG[240]%* "
-local return_status="%(?..$BG[232]$FG[000] $BG[233] ↵ $FG[009]%? )"
+local time="$BG[232]$FG[016] $BG[233] ⌚ $FG[240]%* "
+local return_status="%(?..$BG[232]$FG[016] $BG[233] ↵ $FG[009]%? )"
 
-ZSH_THEME_GIT_PROMPT_PREFIX="$BG[232]$FG[000] $BG[233] ± $FG[240]"
+ZSH_THEME_GIT_PROMPT_PREFIX="$BG[232]$FG[016] $BG[233] ± $FG[240]"
 ZSH_THEME_GIT_PROMPT_SUFFIX=" "
 ZSH_THEME_GIT_PROMPT_DIRTY=""
 ZSH_THEME_GIT_PROMPT_CLEAN=""
