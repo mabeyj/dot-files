@@ -15,4 +15,4 @@ ZSH_THEME_GIT_PROMPT_UNMERGED="%{$fg[magenta]%}M"
 ZSH_THEME_GIT_PROMPT_UNTRACKED="%{$fg[cyan]%}?"
 
 PROMPT="$BG[233]$FG[240] %~ $BG[232] %{$reset_color%}$FX[bold]$FG[032] > %{$reset_color%}"
-RPROMPT=" ${return_status}$(git_prompt_info)${time}%{$reset_color%}"
+RPROMPT=" ${return_status}\$(git_prompt_info)${time}%{$reset_color%}"
