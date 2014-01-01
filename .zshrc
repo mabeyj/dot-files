@@ -41,3 +41,6 @@ source $ZSH/oh-my-zsh.sh
 # Customize to your needs...
 export PATH=/usr/lib/lightdm/lightdm:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games
 export TERM=xterm-256color
+
+# Disable terminal shortcuts so Vim's Command-T CTRL+S shortcut works
+stty -ixon
