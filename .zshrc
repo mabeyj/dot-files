@@ -1,42 +1,96 @@
-# Path to your oh-my-zsh configuration.
-ZSH=$HOME/.oh-my-zsh
+# Coloured man pages: https://wiki.archlinux.org/index.php/Man#Colored_man_pages
+man() {
+	env \
+		LESS_TERMCAP_mb=$(printf "\e[1;31m") \
+		LESS_TERMCAP_md=$(printf "\e[1;31m") \
+		LESS_TERMCAP_me=$(printf "\e[0m") \
+		LESS_TERMCAP_se=$(printf "\e[0m") \
+		LESS_TERMCAP_so=$(printf "\e[1;44;33m") \
+		LESS_TERMCAP_ue=$(printf "\e[0m") \
+		LESS_TERMCAP_us=$(printf "\e[1;32m") \
+			man "$@"
+}
 
-# Set name of the theme to load.
-# Look in ~/.oh-my-zsh/themes/
-# Optionally, if you set this to "random", it'll load a random theme each
-# time that oh-my-zsh is loaded.
-ZSH_THEME="custom2"
+# Syntax highlighting
+function() {
+	local highlight_path=/usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 
-# Example aliases
-# alias zshconfig="mate ~/.zshrc"
-# alias ohmyzsh="mate ~/.oh-my-zsh"
+	if [[ -a $highlight_path ]]
+	then
+		source $highlight_path
+	else
+		echo "Syntax highlighting not installed (install zsh-syntax-highlighting from AUR)"
+	fi
+}
 
-# Set to this to use case-sensitive completion
-# CASE_SENSITIVE="true"
+# Prompt
+function() {
+	autoload -U colors && colors
+	autoload -U compinit
 
-# Comment this out to disable weekly auto-update checks
-# DISABLE_AUTO_UPDATE="true"
+	local prompt_style="%B%F{32}"
+	local return_style="%K{52}%F{203}"
+	local block_style="%K{233}%F{240}"
+	local reset="%k%f%b"
 
-# Uncomment following line if you want to disable colors in ls
-# DISABLE_LS_COLORS="true"
+	local time=" $block_style %D{%k:%M:%S} $reset"
+	local return_status="%(?.. $return_style ↵ %? $reset)"
 
-# Uncomment following line if you want to disable autosetting terminal title.
-# DISABLE_AUTO_TITLE="true"
+	PROMPT="$block_style %~ $reset$prompt_style > $reset"
+	RPROMPT="$return_status$time$reset"
+}
 
-# Uncomment following line if you want red dots to be displayed while waiting for completion
-COMPLETION_WAITING_DOTS="true"
+# Show current directory in window title.
+precmd() {
+	print -Pn "\e]2;%~"
+}
 
-# Which plugins would you like to load? (plugins can be found in ~/.oh-my-zsh/plugins/*)
-# Custom plugins may be added to ~/.oh-my-zsh/custom/plugins/
-# Example format: plugins=(rails git textmate ruby lighthouse)
-plugins=(ant coloured-man-pages git npm pip python svn syntax-highlighting)
+# Redraw the time in $RPROMPT after executing a command so the scrollback shows
+# when each command was executed.
+preexec() {
+	local block_style="%K{233}%F{240}"
+	local reset="%k%f"
 
-if [[ $(uname -a) == *ARCH* ]]
-then
-	plugins+=archlinux
-fi
+	local time=$(date +"%k:%M:%S")
+	local x=$(( $COLUMNS - 11 ))
 
-source $ZSH/oh-my-zsh.sh
+	print -P "\033[1A\033[${x}C$block_style $time $reset"
+}
+
+# History
+function() {
+	HISTFILE=$HOME/.zsh_history
+	HISTSIZE=10000
+	SAVEHIST=10000
+
+	setopt append_history
+	setopt extended_history
+	setopt hist_expire_dups_first
+	setopt hist_ignore_dups
+	setopt hist_ignore_space
+	setopt hist_verify
+	setopt inc_append_history
+	setopt share_history
+}
+
+# Key bindings
+function() {
+	bindkey '^r' history-incremental-search-backward
+}
+
+# Colors
+function() {
+	alias ls="ls --color=tty"
+	alias grep="grep --color=always"
+}
+
+# Miscellaneous
+function() {
+	autoload -U compinit && compinit
+	zstyle ":completion:*" menu select
+
+	setopt auto_cd
+}
 
 # Customize to your needs...
 export PATH=/usr/lib/lightdm/lightdm:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games

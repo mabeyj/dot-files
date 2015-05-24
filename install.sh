@@ -21,13 +21,3 @@ link_file .gitconfig
 link_file .gitignore
 link_file .tmux.conf
 link_file .zshrc
-
-if [[ ! -d ~/.oh-my-zsh ]]
-then
-	echo "Installing oh-my-zsh"
-	wget --no-check-certificate https://github.com/robbyrussell/oh-my-zsh/raw/master/tools/install.sh -O - | sh
-else
-	echo "oh-my-zsh already installed"
-fi
-
-link_file .oh-my-zsh/custom
