@@ -8,3 +8,12 @@
 
 [color]
 	ui = true
+
+[diff]
+	algorithm = patience
+
+[merge]
+	tool = vimdiff
+
+[push]
+	default = simple
