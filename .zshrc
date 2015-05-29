@@ -64,7 +64,7 @@ preexec() {
 	local block_style="%K{233}%F{240}"
 	local reset="%k%f"
 
-	local time=$(date +"%k:%M:%S")
+	local time="$(date +"%k:%M:%S")"
 	local x=$(( $COLUMNS - 11 ))
 
 	print -P "\033[1A\033[${x}C$block_style $time $reset"
