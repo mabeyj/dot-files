@@ -27,21 +27,34 @@ function() {
 function() {
 	autoload -U colors && colors
 	autoload -U compinit
+	autoload -Uz vcs_info
 
 	local prompt_style="%B%F{32}"
 	local return_style="%K{52}%F{203}"
 	local block_style="%K{233}%F{240}"
-	local reset="%k%f%b"
+	local reset="%k%f"
+	local reset_bold="%b"
 
 	local time=" $block_style %D{%k:%M:%S} $reset"
 	local return_status="%(?.. $return_style ↵ %? $reset)"
+	local vcs='$vcs_info_msg_0_'
 
-	PROMPT="$block_style %~ $reset$prompt_style > $reset"
-	RPROMPT="$return_status$time$reset"
+	# Git branch display: this is substituted dynamically in the prompt, so
+	# prompt_subst needs to be enabled and note the single quotes rounds $vcs
+	# above. Also, %b normally means "reset bold", but it represents the branch
+	# name in this format and the "reset bold" form is weirdly escaped, hence
+	# the need to separate $reset and $reset_bold.
+	setopt prompt_subst
+	zstyle ':vcs_info:*' enable git
+	zstyle ':vcs_info:*' formats " $block_style %b $reset"
+
+	PROMPT="$block_style %~ $reset$prompt_style > $reset$reset_bold"
+	RPROMPT="$return_status$vcs$time$reset"
 }
 
-# Show current directory in window title.
+# Update current branch and show current directory in window title.
 precmd() {
+	vcs_info
 	print -Pn "\e]2;%~"
 }
 
