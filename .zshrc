@@ -89,7 +89,8 @@ setopt inc_append_history
 setopt share_history
 
 # Key bindings
-bindkey '^r' history-incremental-search-backward
+bindkey "^r" history-incremental-search-backward
+bindkey "^?" backward-delete-char
 
 # Colors
 alias ls="ls --color=tty"
