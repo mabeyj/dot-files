@@ -75,44 +75,36 @@ preexec() {
 }
 
 # History
-function() {
-	HISTFILE=$HOME/.zsh_history
-	HISTSIZE=10000
-	SAVEHIST=10000
+HISTFILE=$HOME/.zsh_history
+HISTSIZE=10000
+SAVEHIST=10000
 
-	setopt append_history
-	setopt extended_history
-	setopt hist_expire_dups_first
-	setopt hist_ignore_dups
-	setopt hist_ignore_space
-	setopt hist_verify
-	setopt inc_append_history
-	setopt share_history
-}
+setopt append_history
+setopt extended_history
+setopt hist_expire_dups_first
+setopt hist_ignore_dups
+setopt hist_ignore_space
+setopt hist_verify
+setopt inc_append_history
+setopt share_history
 
 # Key bindings
-function() {
-	bindkey '^r' history-incremental-search-backward
-}
+bindkey '^r' history-incremental-search-backward
 
 # Colors
-function() {
-	alias ls="ls --color=tty"
-	alias grep="grep --color=always"
-}
+alias ls="ls --color=tty"
+alias grep="grep --color=always"
 
 # Miscellaneous
-function() {
-	autoload -U compinit && compinit
-	zstyle ":completion:*" menu select
+autoload -U compinit && compinit
+zstyle ":completion:*" menu select
 
-	setopt auto_cd
-}
+setopt auto_cd
+
+# Disable terminal shortcuts so Vim's Command-T CTRL+S shortcut works.
+stty -ixon
 
 # Customize to your needs...
 export PATH=/usr/lib/lightdm/lightdm:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games
 export GOPATH=$HOME/Code/go
 export EDITOR=vim
-
-# Disable terminal shortcuts so Vim's Command-T CTRL+S shortcut works
-stty -ixon
