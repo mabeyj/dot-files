@@ -104,7 +104,9 @@ setopt auto_cd
 # Disable terminal shortcuts so Vim's Command-T CTRL+S shortcut works.
 stty -ixon
 
-# Customize to your needs...
-export PATH=/usr/lib/lightdm/lightdm:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games
-export GOPATH=$HOME/Code/go
+# Environment variables
 export EDITOR=vim
+export GOPATH=$HOME/Code/go
+export PATH=$PATH:$GOPATH/bin
+
+# Custom aliases
