@@ -1,6 +1,13 @@
 # Changing TERM resets many zsh settings, so do it first.
 export TERM=xterm-256color
 
+# Set the custom colours for the selected base16 theme.
+export BASE16_THEME=~/Code/base16-shell/base16-default.dark.sh
+if [[ -a $BASE16_THEME ]]
+then
+	source $BASE16_THEME
+fi
+
 # Coloured man pages: https://wiki.archlinux.org/index.php/Man#Colored_man_pages
 man() {
 	env \
@@ -38,6 +45,14 @@ function() {
 	local reset="%k%f"
 	local reset_bold="%b"
 
+	# Use base16 colours if enabled.
+	if [[ -a $BASE16_THEME ]]
+	then
+		prompt_style="%B%F{15}"
+		return_style="%K{18}%F{1}"
+		block_style="%K{18}%F{8}"
+	fi
+
 	local time=" $block_style %D{%k:%M:%S} $reset"
 	local return_status="%(?.. $return_style ↵ %? $reset)"
 	local vcs='$vcs_info_msg_0_'
@@ -67,6 +82,12 @@ precmd() {
 preexec() {
 	local block_style="%K{233}%F{240}"
 	local reset="%k%f"
+
+	# Use base16 colours if enabled.
+	if [[ -a $BASE16_THEME ]]
+	then
+		block_style="%K{18}%F{8}"
+	fi
 
 	local time="$(date +"%k:%M:%S")"
 	local x=$(( $COLUMNS - 10 ))

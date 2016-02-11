@@ -20,4 +20,5 @@ link_file()
 link_file .gitconfig
 link_file .gitignore
 link_file .tmux.conf
+link_file .tmux.base16.conf
 link_file .zshrc
