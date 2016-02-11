@@ -110,6 +110,7 @@ setopt inc_append_history
 setopt share_history
 
 # Key bindings
+bindkey -v
 bindkey "^r" history-incremental-search-backward
 bindkey "^?" backward-delete-char
 
