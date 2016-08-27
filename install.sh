@@ -1,24 +1,25 @@
 #!/bin/bash
 
-link_file()
-{
-	source_path=$(readlink -f $(dirname $0)/$1)
-	dest_path=~/$1
+# Creates a link in the user's home directory to a file or directory in this
+# repository.
+link() {
+	source=$(readlink -f $(dirname $0)/$1)
+	dest=~/$1
 
-	if [[ -h $dest_path ]]
+	if [[ -h $dest ]]
 	then
-		echo "$1 already linked"
-	elif [[ -a $dest_path ]]
+		echo "$dest already linked"
+	elif [[ -a $dest ]]
 	then
-		echo "[!!] $dest_path already exists"
+		echo "[!!] $dest already exists"
 	else
-		ln -s $source_path $dest_path
-		echo "Linked $source_path to $dest_path"
+		ln --symbolic $source $dest
+		echo "Linked $source to $dest"
 	fi
 }
 
-link_file .gitconfig
-link_file .gitignore
-link_file .tmux.conf
-link_file .tmux.base16.conf
-link_file .zshrc
+link .gitconfig
+link .gitignore
+link .tmux.conf
+link .tmux.base16.conf
+link .zshrc
