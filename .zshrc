@@ -2,7 +2,7 @@
 export TERM=xterm-256color
 
 # Set the custom colours for the selected base16 theme.
-export BASE16_THEME=~/Code/base16-shell/base16-default.dark.sh
+export BASE16_THEME=~/Code/base16-shell/scripts/base16-default-dark.sh
 if [[ -a $BASE16_THEME ]]
 then
 	source $BASE16_THEME
