@@ -28,8 +28,6 @@ function() {
 	if [[ -a $highlight_path ]]
 	then
 		source $highlight_path
-	else
-		echo "Syntax highlighting not installed (install zsh-syntax-highlighting from AUR)"
 	fi
 }
 
