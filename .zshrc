@@ -72,7 +72,6 @@ function() {
 
 	PROMPT="$block_style %~ $reset$prompt_style > $reset$reset_bold"
 	RPROMPT="$return_status$vcs$time$reset"
-	ZLE_RPROMPT_INDENT=0
 }
 
 # Update current branch and show current directory in window title.
@@ -94,7 +93,7 @@ preexec() {
 	fi
 
 	local time="$(date +"%k:%M:%S")"
-	local x=$(( $COLUMNS - 10 ))
+	local x=$(( $COLUMNS - 11 ))
 
 	print -P "\033[1A\033[${x}C$block_style $time $reset"
 }
