@@ -8,6 +8,12 @@ then
 	source $BASE16_THEME
 fi
 
+# Fix Windows Subsystem for Linux umask and setting all permissions to rwx.
+if [[ "$(umask)" == "000" ]]
+then
+	umask 022
+fi
+
 # Coloured man pages: https://wiki.archlinux.org/index.php/Man#Colored_man_pages
 man() {
 	env \
