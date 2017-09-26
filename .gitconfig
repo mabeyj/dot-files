@@ -2,6 +2,9 @@
 	editor = vim
 	excludesfile = ~/.gitignore
 
+[commit]
+	verbose = true
+
 [color]
 	ui = true
 
