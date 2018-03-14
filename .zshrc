@@ -77,7 +77,7 @@ function() {
 # Update current branch and show current directory in window title.
 precmd() {
 	vcs_info
-	print -Pn "\e]2;%~"
+	print -Pn "\e]2;%~\a"
 }
 
 # Redraw the time in $RPROMPT after executing a command so the scrollback shows
