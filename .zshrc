@@ -14,7 +14,8 @@ then
 	umask 022
 fi
 
-# Coloured man pages: https://wiki.archlinux.org/index.php/Man#Colored_man_pages
+# Coloured man pages
+# Source: https://wiki.archlinux.org/index.php/Man#Colored_man_pages
 man() {
 	env \
 		LESS_TERMCAP_mb=$(printf "\e[1;31m") \
