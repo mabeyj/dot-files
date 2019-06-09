@@ -28,6 +28,17 @@ man() {
 			man "$@"
 }
 
+# Ensure ssh-agent is running before calling certain commands.
+init_ssh_agent() {
+	if [[ ! "$(export | grep SSH_AGENT_PID)" ]]
+	then
+		eval $(ssh-agent) && ssh-add ~/.ssh/id_rsa
+	fi
+}
+
+alias git="init_ssh_agent && git"
+alias tmux="init_ssh_agent && tmux"
+
 # Syntax highlighting
 function() {
 	local highlight_path=/usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
