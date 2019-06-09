@@ -130,8 +130,10 @@ bindkey "^r" history-incremental-search-backward
 bindkey "^?" backward-delete-char
 
 # Colors
-alias ls="ls --color=tty"
+alias ag="ag --color"
 alias grep="grep --color=always"
+alias less="less --raw-control-chars"
+alias ls="ls --color=tty"
 
 # Miscellaneous
 autoload -U compinit && compinit
