@@ -28,16 +28,31 @@ man() {
 			man "$@"
 }
 
-# Ensure ssh-agent is running before calling certain commands.
-init_ssh_agent() {
-	if [[ ! "$(export | grep SSH_AGENT_PID)" ]]
+# Start or reconnect to ssh-agent.
+# Source: https://rabexc.org/posts/pitfalls-of-ssh-agents
+function() {
+	local agent_path=~/.ssh/agent
+	local key_paths=(~/.ssh/id_rsa $(find ~/.ssh -name "*.pem"))
+
+	ssh-add -l &> /dev/null
+	if [[ "$?" == 2 ]]
 	then
-		eval $(ssh-agent) && ssh-add ~/.ssh/id_rsa
+		if [[ -r "$agent_path" ]]
+		then
+			eval "$(< "$agent_path")" > /dev/null
+		fi
+
+		ssh-add -l &> /dev/null
+		if [[ "$?" == 2 ]]
+		then
+			echo "Starting ssh-agent..."
+			eval "$(ssh-agent | tee "$agent_path")"
+			chmod u=rwx,g=,o= "$agent_path"
+			ssh-add "$=key_paths"
+			echo
+		fi
 	fi
 }
-
-alias git="init_ssh_agent && git"
-alias tmux="init_ssh_agent && tmux"
 
 # Syntax highlighting
 function() {
