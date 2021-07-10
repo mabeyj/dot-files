@@ -159,8 +159,11 @@ setopt auto_cd
 # Disable terminal shortcuts so Vim's Command-T CTRL+S shortcut works.
 stty -ixon
 
-# Environment variables
+# Tool preferences
 export EDITOR=vim
+export PAGER=less
+
+# Go path
 export GOPATH=$HOME/Code/go
 export PATH=$PATH:$GOPATH/bin
 
