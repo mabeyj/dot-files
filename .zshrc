@@ -28,30 +28,26 @@ man() {
 			man "$@"
 }
 
-# Start or reconnect to ssh-agent.
-# Source: https://rabexc.org/posts/pitfalls-of-ssh-agents
-function() {
-	local agent_path=~/.ssh/agent
+# Start or reconnect to ssh-agent, and populate its keys.
+init-ssh-agent() {
+	export SSH_AUTH_SOCK="$XDG_RUNTIME_DIR/ssh-agent.socket"
+
 	local key_paths=(~/.ssh/id_rsa $(find ~/.ssh -name "*.pem"))
 
 	ssh-add -l &> /dev/null
-	if [[ "$?" == 2 ]]
-	then
-		if [[ -r "$agent_path" ]]
-		then
-			eval "$(< "$agent_path")" > /dev/null
-		fi
-
-		ssh-add -l &> /dev/null
-		if [[ "$?" == 2 ]]
-		then
-			echo "Starting ssh-agent..."
-			eval "$(ssh-agent | tee "$agent_path")"
-			chmod u=rwx,g=,o= "$agent_path"
+	case "$?" in
+		1)
+			echo "Adding keys to ssh-agent..."
 			ssh-add "$=key_paths"
 			echo
-		fi
-	fi
+			;;
+
+		2)
+			echo "ssh-agent user service is not started."
+			echo "To enable, run: systemctl enable --now --user ssh-agent && init-ssh-agent"
+			echo
+			;;
+	esac
 }
 
 # Syntax highlighting
@@ -173,3 +169,5 @@ if type nvim > /dev/null
 then
 	alias vim=nvim
 fi
+
+init-ssh-agent
