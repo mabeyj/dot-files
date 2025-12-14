@@ -50,8 +50,8 @@ init-ssh-agent() {
 	esac
 }
 
-# Syntax highlighting
-function() {
+# Enable zsh syntax highlighting.
+init-zsh-syntax-highlighting() {
 	local highlight_path=/usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 
 	if [[ -a $highlight_path ]]
@@ -171,3 +171,4 @@ then
 fi
 
 init-ssh-agent
+init-zsh-syntax-highlighting
