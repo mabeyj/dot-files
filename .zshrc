@@ -161,11 +161,5 @@ export PAGER=less
 export GOPATH=$HOME/Code/go
 export PATH=$PATH:$GOPATH/bin
 
-# Aliases
-if type nvim > /dev/null
-then
-	alias vim=nvim
-fi
-
 init-ssh-agent
 init-zsh-syntax-highlighting
