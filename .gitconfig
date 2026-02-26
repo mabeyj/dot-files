@@ -3,6 +3,7 @@
 	excludesfile = ~/.gitignore
 
 [commit]
+	gpgsign = true
 	verbose = true
 
 [color]
