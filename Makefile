@@ -16,7 +16,7 @@ $(GITIGNORE): .gitignore
 
 $(TMUXCONF): Makefile
 	echo "source-file $(PWD)/.tmux.conf" > $@
-	echo "if-shell \"ls $$BASE16_THEME\" \"source-file $(PWD)/.tmux.base16.conf\"" >> $@
+	echo "if-shell \"ls \$$BASE16_THEME \|| ls \$$BASE24_THEME\" \"source-file $(PWD)/.tmux.tinted.conf\"" >> $@
 
 $(ZSHRC): Makefile
 	echo "source $(PWD)/.zshrc" > $@

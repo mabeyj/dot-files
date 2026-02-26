@@ -1,10 +1,3 @@
-# Set the custom colours for the selected base16 theme.
-export BASE16_THEME=~/Code/base16-shell/scripts/base16-default-dark.sh
-if [[ -a $BASE16_THEME ]]
-then
-	source $BASE16_THEME
-fi
-
 # Fix Windows Subsystem for Linux umask and setting all permissions to rwx.
 if [[ "$(umask)" == "000" ]]
 then
@@ -47,7 +40,22 @@ init-ssh-agent() {
 	esac
 }
 
-# Enable zsh syntax highlighting.
+# Enable Tinted Shell theme, if available.
+init-tinted-shell() {
+	local tinted_shell_path=~/Code/tinted-shell/scripts/base16-default-dark.sh
+
+	if [[ -a "$tinted_shell_path" ]]
+	then
+		source "$tinted_shell_path"
+	fi
+}
+
+# Return a zero exit status if a Tinted Shell theme is active.
+is-tinted-shell-enabled() {
+	[[ -n "$BASE16_THEME" || -n "$BASE24_THEME" ]]
+}
+
+# Enable zsh syntax highlighting, if available.
 init-zsh-syntax-highlighting() {
 	local highlight_path=/usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 
@@ -58,7 +66,7 @@ init-zsh-syntax-highlighting() {
 }
 
 # Prompt
-function() {
+init-prompt() {
 	autoload -U colors && colors
 	autoload -U compinit
 	autoload -Uz vcs_info
@@ -69,8 +77,7 @@ function() {
 	local reset="%k%f"
 	local reset_bold="%b"
 
-	# Use base16 colours if enabled.
-	if [[ -a $BASE16_THEME ]]
+	if is-tinted-shell-enabled
 	then
 		prompt_style="%B%F{15}"
 		return_style="%K{18}%F{1}"
@@ -106,8 +113,7 @@ preexec() {
 	local block_style="%K{233}%F{240}"
 	local reset="%k%f"
 
-	# Use base16 colours if enabled.
-	if [[ -a $BASE16_THEME ]]
+	if is-tinted-shell-enabled
 	then
 		block_style="%K{18}%F{8}"
 	fi
@@ -162,4 +168,7 @@ export GOPATH=$HOME/Code/go
 export PATH=$PATH:$GOPATH/bin
 
 init-ssh-agent
+init-tinted-shell
 init-zsh-syntax-highlighting
+
+init-prompt
