@@ -1,8 +1,5 @@
 #!/bin/zsh
 
-# TODO: Default FS binds should check if dir/file exist since sandlock has
-# no --fs-read-try, etc.
-
 local -r stub_path="/tmp/sandbox-stub.txt"
 local -r tmp_path="/tmp/sandbox"
 
@@ -119,17 +116,6 @@ run-sandbox() {
 		--dev /dev
 		--proc /proc
 		--tmpfs /tmp
-
-		--ro-bind $(repeat-path "$HOME/.local/bin")
-		--ro-bind $(repeat-path /bin)
-		--ro-bind $(repeat-path /etc/group)
-		--ro-bind $(repeat-path /etc/ld.so.cache)
-		--ro-bind $(repeat-path /etc/localtime)
-		--ro-bind $(repeat-path /etc/man_db.conf)
-		--ro-bind $(repeat-path /etc/passwd)
-		--ro-bind $(repeat-path /lib)
-		--ro-bind $(repeat-path /lib64)
-		--ro-bind $(repeat-path /usr)
 		--bind "$tmp_path" /tmp
 	)
 
@@ -138,20 +124,22 @@ run-sandbox() {
 	)
 	local -a sandlock_env_args=()
 	local -a sandlock_file_system_args=(
-		--fs-read "$HOME/.local/bin"
-		--fs-read /bin
-		--fs-read /etc/group
-		--fs-read /etc/ld.so.cache
-		--fs-read /etc/localtime
-		--fs-read /etc/man_db.conf
-		--fs-read /etc/passwd
-		--fs-read /lib
-		--fs-read /lib64
-		--fs-read /usr
 		--fs-write /dev
 		--fs-write /proc
 		--fs-write /tmp
 	)
+
+	bind-read \
+		"$HOME/.local/bin" \
+		/bin \
+		/etc/group \
+		/etc/ld.so.cache \
+		/etc/localtime \
+		/etc/man_db.conf \
+		/etc/passwd \
+		/lib \
+		/lib64 \
+		/usr
 
 	local -i allow_network=0
 	local -i allow_root=0
@@ -160,8 +148,7 @@ run-sandbox() {
 	local -i allow_unsafe_dns=0
 	local -i allow_unsafe_https=0
 
-	local allow_project_bwrap_arg=--ro-bind
-	local allow_project_sandlock_arg=--fs-read
+	local allow_project_bind=bind-read
 
 	while (( $# > 0 ))
 	do
@@ -184,15 +171,13 @@ run-sandbox() {
 
 			--allow-project)
 				allow_project=1
-				allow_project_bwrap_arg=--bind
-				allow_project_sandlock_arg=--fs-write
+				allow_project_bind=bind-write
 				shift
 				;;
 
 			--allow-project-read)
 				allow_project=1
-				allow_project_bwrap_arg=--ro-bind
-				allow_project_sandlock_arg=--fs-read
+				allow_project_bind=bind-read
 				shift
 				;;
 
@@ -252,12 +237,10 @@ run-sandbox() {
 	then
 		bwrap_args+=(
 			--share-net
-			--ro-bind $(repeat-path /etc/ca-certificates)
-			--ro-bind $(repeat-path /etc/gai.conf)
+
+			# Sandlock automatically mounts /etc/hosts, so it only needs
+			# the bwrap bind.
 			--ro-bind $(repeat-path /etc/hosts)
-			--ro-bind $(repeat-path /etc/nsswitch.conf)
-			--ro-bind $(repeat-path /etc/resolv.conf)
-			--ro-bind $(repeat-path /etc/ssl)
 		)
 		sandlock_supervisor_args+=(
 			--env NODE_EXTRA_CA_CERTS=$sandlock_ca_path
@@ -265,14 +248,13 @@ run-sandbox() {
 			--http-inject-ca /etc/ssl/certs/ca-certificates.crt
 			--http-port 443
 		)
-		sandlock_file_system_args+=(
-			# sandlock automatically mounts /etc/hosts.
-			--fs-read /etc/ca-certificates
-			--fs-read /etc/gai.conf
-			--fs-read /etc/nsswitch.conf
-			--fs-read /etc/resolv.conf
-			--fs-read /etc/ssl
-		)
+
+		bind-read \
+			/etc/ca-certificates \
+			/etc/gai.conf \
+			/etc/nsswitch.conf \
+			/etc/resolv.conf \
+			/etc/ssl
 	fi
 
 	if (( $allow_unsafe_dns ))
@@ -310,12 +292,7 @@ run-sandbox() {
 
 		for project_dir in ${(f)project_dirs}
 		do
-			bwrap_args+=(
-				$allow_project_bwrap_arg $(repeat-path "$project_dir")
-			)
-			sandlock_file_system_args+=(
-				$allow_project_sandlock_arg "$project_dir"
-			)
+			"$allow_project_bind" "$project_dir"
 		done
 
 		# --fs-deny needs the supervisor. A nested sandbox relies on the
@@ -333,23 +310,16 @@ run-sandbox() {
 
 	if (( $allow_npm ))
 	then
-		bwrap_args+=(
-			--ro-bind-try $(repeat-path "$HOME/.npmrc")
-			--bind-try $(repeat-path "$HOME/.npm")
-			--bind-try $(repeat-path "$PWD/node_modules")
-			--bind-try $(repeat-path "$PWD/package-lock.json")
-			--bind-try $(repeat-path "$PWD/package.json")
-		)
 		sandlock_supervisor_args+=(
 			--http-allow "GET registry.npmjs.org"
 		)
-		sandlock_file_system_args+=(
-			--fs-read "$HOME/.npmrc"
-			--fs-write "$HOME/.npm"
-			--fs-write "$PWD/node_modules"
-			--fs-write "$PWD/package-lock.json"
-			--fs-write "$PWD/package.json"
-		)
+
+		bind-read "$HOME/.npmrc"
+		bind-write \
+			"$HOME/.npm" \
+			"$PWD/node_modules" \
+			"$PWD/package-lock.json" \
+			"$PWD/package.json"
 	fi
 
 	local -a command=()
@@ -394,6 +364,30 @@ run-sandbox() {
 
 repeat-path() {
 	echo "$1" "$1"
+}
+
+# Sandlock has no --fs-read-try/--fs-write-try, so paths that do not exist are
+# skipped. Appends to run-sandbox's bwrap_args and sandlock_file_system_args.
+bind-read() {
+	bind-existing --ro-bind --fs-read "$@"
+}
+
+bind-write() {
+	bind-existing --bind --fs-write "$@"
+}
+
+bind-existing() {
+	local -r bwrap_arg="$1"
+	local -r sandlock_arg="$2"
+	shift 2
+
+	for bind_path in "$@"
+	do
+		[[ -e "$bind_path" ]] || continue
+
+		bwrap_args+=($bwrap_arg $(repeat-path "$bind_path"))
+		sandlock_file_system_args+=($sandlock_arg "$bind_path")
+	done
 }
 
 get-project-dirs() {
