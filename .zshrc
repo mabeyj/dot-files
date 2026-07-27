@@ -165,7 +165,7 @@ export PAGER=less
 
 # Go path
 export GOPATH=$HOME/Code/go
-export PATH=$PATH:$GOPATH/bin
+export PATH=$HOME/.local/bin:$GOPATH/bin:$PATH
 
 init-ssh-agent
 init-tinted-shell

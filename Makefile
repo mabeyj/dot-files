@@ -1,17 +1,19 @@
 GITCONFIG=~/.gitconfig
 GITIGNORE=~/.gitignore
+SANDBOX=~/.local/bin/sandbox
 TMUXCONF=~/.tmux.conf
 ZSHRC=~/.zshrc
 ZSHRC_LOCAL=$(ZSHRC).local
 
 .PHONY: install
-install: $(GITCONFIG) $(GITIGNORE) $(TMUXCONF) $(ZSHRC)
+install: $(GITCONFIG) $(GITIGNORE) $(SANDBOX) $(TMUXCONF) $(ZSHRC)
 
 $(GITCONFIG):
 	echo "[include]" > $@
 	echo "	path = $(PWD)/.gitconfig" >> $@
 
 $(GITIGNORE): .gitignore
+$(SANDBOX): bin/sandbox
 	cp $^ $@
 
 $(TMUXCONF): Makefile
