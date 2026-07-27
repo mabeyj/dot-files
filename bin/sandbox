@@ -4,80 +4,81 @@ local -r stub_path="/tmp/sandbox-stub.txt"
 local -r tmp_path="/tmp/sandbox"
 
 usage() {
-	echo "sandbox [<option> ...] [-- <command> ...]"
-	echo
-	echo "Network options:"
-	echo
-	echo "  --allow-https \"<method> <host>[/<path>]\""
-	echo "    Allow HTTPS requests that match the given method, host, and path."
-	echo "    Method can be any HTTP method (GET, POST, etc.) or \"*\" to allow"
-	echo "    all methods. Path can contain \"*\" wildcards or can be omitted"
-	echo "    to allow all paths."
-	echo
-	echo "    Examples:"
-	echo "      --allow-https \"GET example.com\""
-	echo "      --allow-https \"POST example.com/records/*/edit\""
-	echo "      --allow-https \"* example.com\""
-	echo
-	echo "  --allow-unsafe-dns"
-	echo "    Allow DNS lookups for any host."
-	echo "    WARNING: This is vulnerable to data exfiltration."
-	echo
-	echo "  --allow-unsafe-https"
-	echo "    Allow GET requests and DNS lookups for any host."
-	echo "    WARNING: This is vulnerable to data exfiltration."
-	echo
-	echo "File system options:"
-	echo
-	echo "  --allow-root"
-	echo "    Allow commands to list the contents of the entire file system"
-	echo "    that they have been granted access."
-	echo
-	echo "  --allow-project"
-	echo "    Allow read and write access to the current directory. If the"
-	echo "    current directory is a Git worktree, then its main worktree will"
-	echo "    be allowed as well."
-	echo
-	echo "  --allow-project-read"
-	echo "    Same as --allow-project, but read only."
-	echo
-	echo "  --bind <path>"
-	echo "    Allow read and write access to a file or directory at the"
-	echo "    specified path."
-	echo
-	echo "  --bind-read <path>"
-	echo "    Same as --bind, but read only."
-	echo
-	echo "Environment variable options:"
-	echo
-	echo "  --env <name> <value>"
-	echo "    Sets an environment variable within the sandbox."
-	echo
-	echo "Options applying application presets:"
-	echo
-	echo "  --allow-npm"
-	echo "    Allow access to the following for running npm:"
-	echo "      ~/.npm                      (read and write)"
-	echo "      ~/.npmrc                    (read only)"
-	echo "      ./node_modules              (read and write)"
-	echo "      ./package-lock.json         (read and write)"
-	echo "      ./package.json              (read and write)"
-	echo "      https://registry.npmjs.org  (GET only)"
-	echo
-	echo "Nesting sandboxes:"
-	echo
-	echo "  Sandboxes can be nested with some limitations."
-	echo
-	echo "  A nested sandbox will be subject to the network configuration of"
-	echo "  its outermost sandbox and cannot be further restricted."
-	echo
-	echo "  It will inherit the file system of its parent sandbox, except"
-	echo "  without any permissions by default. You must rebind all files and"
-	echo "  directories to the nested sandbox, and these binds cannot be more"
-	echo "  permissive than those on its parent sandbox."
-	echo
-	echo "  It will inherit all environment variables set on its parent"
-	echo "  sandbox."
+	cat <<-"EOF"
+	sandbox [<option> ...] [-- <command> ...]
+
+	Network options:
+
+	  --allow-https "<method> <host>[/<path>]"
+	    Allow HTTPS requests that match the given method, host, and path.
+	    Method can be any HTTP method (GET, POST, etc.) or "*" to allow all
+	    methods. Path can contain "*" wildcards or can be omitted to allow all
+	    paths.
+
+	    Examples:
+	      --allow-https "GET example.com"
+	      --allow-https "POST example.com/records/*/edit"
+	      --allow-https "* example.com"
+
+	  --allow-unsafe-dns
+	    Allow DNS lookups for any host.
+	    WARNING: This is vulnerable to data exfiltration.
+
+	  --allow-unsafe-https
+	    Allow GET requests and DNS lookups for any host.
+	    WARNING: This is vulnerable to data exfiltration.
+
+	File system options:
+
+	  --allow-root
+	    Allow commands to list the contents of the entire file system that they
+	    have been granted access.
+
+	  --allow-project
+	    Allow read and write access to the current directory. If the current
+	    directory is a Git worktree, then its main worktree will be allowed as
+	    well.
+
+	  --allow-project-read
+	    Same as --allow-project, but read only.
+
+	  --bind <path>
+	    Allow read and write access to a file or directory at the specified
+	    path.
+
+	  --bind-read <path>
+	    Same as --bind, but read only.
+
+	Environment variable options:
+
+	  --env <name> <value>
+	    Sets an environment variable within the sandbox.
+
+	Options applying application presets:
+
+	  --allow-npm
+	    Allow access to the following for running npm:
+	      ~/.npm                      (read and write)
+	      ~/.npmrc                    (read only)
+	      ./node_modules              (read and write)
+	      ./package-lock.json         (read and write)
+	      ./package.json              (read and write)
+	      https://registry.npmjs.org  (GET only)
+
+	Nesting sandboxes:
+
+	  Sandboxes can be nested with some limitations.
+
+	  A nested sandbox will be subject to the network configuration of its
+	  outermost sandbox and cannot be further restricted.
+
+	  It will inherit the file system of its parent sandbox, except without any
+	  permissions by default. You must rebind all files and directories to the
+	  nested sandbox, and these binds cannot be more permissive than those on
+	  its parent sandbox.
+
+	  It will inherit all environment variables set on its parent sandbox.
+	EOF
 }
 
 run-sandbox() {
@@ -89,8 +90,7 @@ run-sandbox() {
 	# seccomp listener, so skip systemd-run and bwrap and run Sandlock alone in
 	# --no-supervisor mode. The outer sandbox marks its environment with
 	# SANDBOX_NESTED via bwrap_args below.
-	local -i nested=0
-	[[ -n "$SANDBOX_NESTED" ]] && nested=1
+	local -i nested=${+SANDBOX_NESTED}
 
 	local -a bwrap_args=(
 		--chdir "$PWD"
@@ -98,26 +98,34 @@ run-sandbox() {
 		--unshare-all
 
 		--clearenv
-		--setenv DISPLAY "$DISPLAY"
-		--setenv DO_NOT_TRACK "$DO_NOT_TRACK"
-		--setenv HOME "$HOME"
-		--setenv LANG "$LANG"
-		--setenv PATH "$PATH"
 		--setenv SANDBOX_NESTED 1
-		--setenv TERM "$TERM"
-		--setenv TERM_PROGRAM "$TERM_PROGRAM"
-		--setenv TMUX "$TMUX"
-		--setenv TMUX_PANE "$TMUX_PANE"
-		--setenv USER "$USER"
-		--setenv XDG_CACHE_HOME "$XDG_CACHE_HOME"
-		--setenv XDG_CONFIG_HOME "$XDG_CONFIG_HOME"
-		--setenv XDG_DATA_DIRS "$XDG_DATA_DIRS"
 
 		--dev /dev
 		--proc /proc
 		--tmpfs /tmp
 		--bind "$tmp_path" /tmp
 	)
+
+	# Forward these environment variables into the sandbox when set.
+	local env_name
+	for env_name in \
+		DISPLAY \
+		DO_NOT_TRACK \
+		HOME \
+		LANG \
+		PATH \
+		TERM \
+		TERM_PROGRAM \
+		TMUX \
+		TMUX_PANE \
+		USER \
+		XDG_CACHE_HOME \
+		XDG_CONFIG_HOME \
+		XDG_DATA_DIRS
+	do
+		[[ -n "${(P)env_name}" ]] || continue
+		bwrap_args+=(--setenv "$env_name" "${(P)env_name}")
+	done
 
 	local -a sandlock_supervisor_args=(
 		--max-processes 512
@@ -159,6 +167,7 @@ run-sandbox() {
 				;;
 
 			--allow-https)
+				check-enough-args 2 "$@" || return 1
 				allow_network=1
 				sandlock_supervisor_args+=(--http-allow "$2")
 				shift 2
@@ -201,18 +210,21 @@ run-sandbox() {
 				;;
 
 			--bind)
-				bwrap_args+=(--bind $(repeat-path "$2"))
+				check-enough-args 2 "$@" || return 1
+				bwrap_args+=(--bind "$2" "$2")
 				sandlock_file_system_args+=(--fs-write "$2")
 				shift 2
 				;;
 
 			--bind-read)
-				bwrap_args+=(--ro-bind $(repeat-path "$2"))
+				check-enough-args 2 "$@" || return 1
+				bwrap_args+=(--ro-bind "$2" "$2")
 				sandlock_file_system_args+=(--fs-read "$2")
 				shift 2
 				;;
 
 			--env)
+				check-enough-args 3 "$@" || return 1
 				sandlock_env_args+=(--env "$2=$3")
 				shift 3
 				;;
@@ -223,7 +235,8 @@ run-sandbox() {
 				;;
 
 			-*)
-				echo "Unknown sandbox argument: $1" >& 2
+				echo "Unknown sandbox argument: $1" >&2
+				usage >&2
 				return 1
 				;;
 
@@ -233,14 +246,14 @@ run-sandbox() {
 		esac
 	done
 
-	if (( $allow_network ))
+	if (( allow_network ))
 	then
 		bwrap_args+=(
 			--share-net
 
 			# Sandlock automatically mounts /etc/hosts, so it only needs
 			# the bwrap bind.
-			--ro-bind $(repeat-path /etc/hosts)
+			--ro-bind /etc/hosts /etc/hosts
 		)
 		sandlock_supervisor_args+=(
 			--env NODE_EXTRA_CA_CERTS=$sandlock_ca_path
@@ -257,7 +270,7 @@ run-sandbox() {
 			/etc/ssl
 	fi
 
-	if (( $allow_unsafe_dns ))
+	if (( allow_unsafe_dns ))
 	then
 		# Unsafe because it can be used to exfiltrate data via DNS requests.
 		sandlock_supervisor_args+=(--net-allow "udp://127.0.0.53:53")
@@ -270,27 +283,28 @@ run-sandbox() {
 		# a DNS exfiltration channel.
 	fi
 
-	if (( $allow_unsafe_https ))
+	if (( allow_unsafe_https ))
 	then
 		sandlock_supervisor_args+=(--http-allow "GET *")
 	fi
 
-	if (( $allow_root ))
+	if (( allow_root ))
 	then
 		sandlock_file_system_args+=(--fs-read /)
 	fi
 
-	if (( ! $allow_project && ! $allow_npm ))
+	if (( ! allow_project && ! allow_npm ))
 	then
 		# Need at least some access to the project directory to run a command.
 		allow_project=1
 	fi
 
-	if (( $allow_project ))
+	if (( allow_project ))
 	then
-		local project_dirs="$(get-project-dirs)"
+		local -a project_dirs=(${(f)"$(get-project-dirs)"})
 
-		for project_dir in ${(f)project_dirs}
+		local project_dir
+		for project_dir in "${project_dirs[@]}"
 		do
 			"$allow_project_bind" "$project_dir"
 		done
@@ -300,7 +314,8 @@ run-sandbox() {
 		# found in the outer sandbox's project directories.
 		if (( ! nested ))
 		then
-			for blocked_path in ${(f)"$(get-blocked-paths ${(f)project_dirs})"}
+			local blocked_path
+			for blocked_path in ${(f)"$(get-blocked-paths "${project_dirs[@]}")"}
 			do
 				bwrap_args+=(--ro-bind "$stub_path" "$blocked_path")
 				sandlock_file_system_args+=(--fs-deny "$blocked_path")
@@ -308,7 +323,7 @@ run-sandbox() {
 		fi
 	fi
 
-	if (( $allow_npm ))
+	if (( allow_npm ))
 	then
 		sandlock_supervisor_args+=(
 			--http-allow "GET registry.npmjs.org"
@@ -322,10 +337,10 @@ run-sandbox() {
 			"$PWD/package.json"
 	fi
 
-	local -a command=()
+	local -a cmd=()
 	if (( ! nested ))
 	then
-		command+=(
+		cmd+=(
 			systemd-run
 				--collect
 				--property "MemoryHigh=$high_memory_limit"
@@ -343,7 +358,7 @@ run-sandbox() {
 		sandlock_supervisor_args=(--no-supervisor)
 	fi
 
-	command+=(
+	cmd+=(
 		sandlock
 			run
 			"${sandlock_supervisor_args[@]}"
@@ -352,18 +367,28 @@ run-sandbox() {
 			--
 	)
 
-	if [[ -z "$@" ]]
+	if (( $# == 0 ))
 	then
-		command+=(/bin/bash)
+		cmd+=(/bin/bash)
 	else
-		command+=("$@")
+		cmd+=("$@")
 	fi
 
-	"${command[@]}"
+	"${cmd[@]}"
 }
 
-repeat-path() {
-	echo "$1" "$1"
+# Checks that enough arguments remain for an option.
+#
+# $1 is the number of arguments it needs, including the option itself, followed
+# by the remaining arguments that are left to parse.
+check-enough-args() {
+	local -ri needed="$1"
+	shift
+
+	(( $# >= needed )) && return 0
+
+	echo "Missing argument for option: $1" >&2
+	return 1
 }
 
 # Sandlock has no --fs-read-try/--fs-write-try, so paths that do not exist are
@@ -381,11 +406,12 @@ bind-existing() {
 	local -r sandlock_arg="$2"
 	shift 2
 
+	local bind_path
 	for bind_path in "$@"
 	do
 		[[ -e "$bind_path" ]] || continue
 
-		bwrap_args+=($bwrap_arg $(repeat-path "$bind_path"))
+		bwrap_args+=($bwrap_arg "$bind_path" "$bind_path")
 		sandlock_file_system_args+=($sandlock_arg "$bind_path")
 	done
 }
@@ -395,14 +421,13 @@ get-project-dirs() {
 
 	if [[ -f ".git" ]]
 	then
-		local git_dir=$(
-			grep --color=never "^gitdir:" ".git" | sed "s/^gitdir: //"
-		)
-		echo "$(realpath "$git_dir/../../..")"
+		local git_dir="$(sed -n "s/^gitdir: //p" ".git")"
+		realpath "$git_dir/../../.."
 	fi
 }
 
 get-blocked-paths() {
+	local project_dir
 	for project_dir in "$@"
 	do
 		find \
