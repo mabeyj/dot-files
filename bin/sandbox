@@ -59,11 +59,13 @@ usage() {
 	  --allow-npm
 	    Allow access to the following for running npm:
 	      ~/.npm                      (read and write)
-	      ~/.npmrc                    (read only)
 	      ./node_modules              (read and write)
 	      ./package-lock.json         (read and write)
 	      ./package.json              (read and write)
 	      https://registry.npmjs.org  (GET only)
+
+	    Also allow read access to .npmrc files in the user's home directory, the
+	    current directory, and all of its parents.
 
 	Nesting sandboxes:
 
@@ -329,7 +331,8 @@ run-sandbox() {
 			--http-allow "GET registry.npmjs.org"
 		)
 
-		bind-read "$HOME/.npmrc"
+		local -aU npmrc_paths=(${(f)"$(get-npmrc-paths)"})
+		bind-read "${npmrc_paths[@]}"
 		bind-write \
 			"$HOME/.npm" \
 			"$PWD/node_modules" \
@@ -424,6 +427,22 @@ get-project-dirs() {
 		local git_dir="$(sed -n "s/^gitdir: //p" ".git")"
 		realpath "$git_dir/../../.."
 	fi
+}
+
+# Lists every path where npm may look for a .npmrc file.
+#
+# This includes the user's home directory, the current directory, and all of its
+# parents. The listed paths may not exist.
+get-npmrc-paths() {
+	echo "$HOME/.npmrc"
+
+	local dir="$PWD"
+	while :
+	do
+		echo "${dir%/}/.npmrc"
+		[[ "$dir" == "/" ]] && break
+		dir="${dir:h}"
+	done
 }
 
 get-blocked-paths() {
