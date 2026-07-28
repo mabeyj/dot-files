@@ -142,6 +142,7 @@ run-sandbox() {
 	bind-read \
 		"$HOME/.local/bin" \
 		/bin \
+		/etc/fonts \
 		/etc/group \
 		/etc/ld.so.cache \
 		/etc/localtime \
