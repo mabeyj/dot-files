@@ -311,16 +311,17 @@ run-sandbox() {
 			"$allow_project_bind" "$project_dir"
 		done
 
-		# --fs-deny needs the supervisor. A nested sandbox relies on the
-		# outer sandbox's stub binds instead, which only cover blocked paths
-		# found in the outer sandbox's project directories.
+		# Blocked paths are concealed by binding a stub file over them.
+		# Sandlock's --fs-deny is not used because denied file access makes some
+		# programs hang or crash (e.g., Claude Code). A nested sandbox relies on
+		# the outer sandbox's stub binds, which only cover blocked paths found
+		# in the outer sandbox's project directories.
 		if (( ! nested ))
 		then
 			local blocked_path
 			for blocked_path in ${(f)"$(get-blocked-paths "${project_dirs[@]}")"}
 			do
 				bwrap_args+=(--ro-bind "$stub_path" "$blocked_path")
-				sandlock_file_system_args+=(--fs-deny "$blocked_path")
 			done
 		fi
 	fi
