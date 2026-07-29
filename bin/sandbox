@@ -175,6 +175,8 @@ run-sandbox() {
 	local -i allow_unsafe_dns=0
 	local -i allow_unsafe_https=0
 
+	local -a env_assignments=()
+
 	local allow_project_bind=bind-read
 
 	while (( $# > 0 ))
@@ -244,7 +246,7 @@ run-sandbox() {
 
 			--env)
 				check-enough-args 3 "$@" || return 1
-				sandlock_env_args+=(--env "$2=$3")
+				env_assignments+=("$2=$3")
 				shift 3
 				;;
 
@@ -348,6 +350,24 @@ run-sandbox() {
 			"$PWD/node_modules" \
 			"$PWD/package-lock.json" \
 			"$PWD/package.json"
+	fi
+
+	# --env is applied through whichever layer actually runs: bwrap when this is
+	# the outermost sandbox and Sandlock when nested under one.
+	local env_assignment
+	if (( ! nested ))
+	then
+		for env_assignment in "${env_assignments[@]}"
+		do
+			bwrap_args+=(
+				--setenv "${env_assignment%%=*}" "${env_assignment#*=}"
+			)
+		done
+	else
+		for env_assignment in "${env_assignments[@]}"
+		do
+			sandlock_env_args+=(--env "$env_assignment")
+		done
 	fi
 
 	local -a cmd=()
