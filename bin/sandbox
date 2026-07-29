@@ -123,7 +123,6 @@ run-sandbox() {
 	# Forward these environment variables into the sandbox when set.
 	local env_name
 	for env_name in \
-		DISPLAY \
 		DO_NOT_TRACK \
 		HOME \
 		LANG \
