@@ -113,6 +113,11 @@ run-sandbox() {
 		# ~/.config). Later binds mount real files over it as needed.
 		# Contents persist across sandbox restarts but not across reboots.
 		--bind "$tmp_path/home" "$HOME"
+
+		# Sandlock mounts its own /etc/hosts, so this gets a bwrap bind only.
+		# Passing --fs-read for the path makes Landlock fail to add the rule
+		# once Sandlock has mounted over it.
+		--ro-bind /etc/hosts /etc/hosts
 	)
 
 	# Forward these environment variables into the sandbox when set.
@@ -147,14 +152,18 @@ run-sandbox() {
 		--fs-write /tmp
 	)
 
+	# gai.conf and nsswitch.conf are needed in a network-free sandbox for
+	# programs that serve on its own loopback.
 	bind-read \
 		"$HOME/.local/bin" \
 		/bin \
 		/etc/fonts \
+		/etc/gai.conf \
 		/etc/group \
 		/etc/ld.so.cache \
 		/etc/localtime \
 		/etc/man_db.conf \
+		/etc/nsswitch.conf \
 		/etc/passwd \
 		/lib \
 		/lib64 \
@@ -259,13 +268,7 @@ run-sandbox() {
 
 	if (( allow_network ))
 	then
-		bwrap_args+=(
-			--share-net
-
-			# Sandlock automatically mounts /etc/hosts, so it only needs
-			# the bwrap bind.
-			--ro-bind /etc/hosts /etc/hosts
-		)
+		bwrap_args+=(--share-net)
 		sandlock_supervisor_args+=(
 			--env NODE_EXTRA_CA_CERTS=$sandlock_ca_path
 			--http-ca-out $sandlock_ca_path
@@ -275,8 +278,6 @@ run-sandbox() {
 
 		bind-read \
 			/etc/ca-certificates \
-			/etc/gai.conf \
-			/etc/nsswitch.conf \
 			/etc/resolv.conf \
 			/etc/ssl
 	fi
