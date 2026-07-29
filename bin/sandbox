@@ -88,11 +88,16 @@ run-sandbox() {
 	local -r high_memory_limit=3G
 	local -r max_memory_limit=4G
 
-	# When nested inside another sandbox, the outer Sandlock supervisor owns the
-	# seccomp listener, so skip systemd-run and bwrap and run Sandlock alone in
-	# --no-supervisor mode. The outer sandbox marks its environment with
-	# SANDBOX_NESTED via bwrap_args below.
+	# Nesting is detected from two markers the outer sandbox sets on the
+	# environment.
+	#
+	# SANDBOX_NESTED means systemd-run and bwrap have already run and must be
+	# skipped. SANDBOX_SANDLOCK means an outer Sandlock supervisor owns the
+	# seccomp listener, so a nested Sandlock can only run in --no-supervisor
+	# mode. Without that marker a nested sandbox may run a supervisor of its
+	# own, and so may impose its own network restrictions.
 	local -i nested=${+SANDBOX_NESTED}
+	local -i outer_sandlock=${+SANDBOX_SANDLOCK}
 
 	local -a bwrap_args=(
 		--chdir "$PWD"
@@ -120,6 +125,22 @@ run-sandbox() {
 		--ro-bind /etc/hosts /etc/hosts
 	)
 
+	local -a sandlock_supervisor_args=(
+		--max-processes 512
+	)
+	local -a sandlock_env_args=()
+	local -a sandlock_file_system_args=(
+		--fs-write "$HOME"
+		--fs-write /dev
+		--fs-write /proc
+		--fs-write /tmp
+	)
+
+	# Tell nested sandboxes that a supervisor already owns the seccomp listener.
+	# Set on both layers so the marker survives whichever one actually runs.
+	bwrap_args+=(--setenv SANDBOX_SANDLOCK 1)
+	sandlock_env_args+=(--env SANDBOX_SANDLOCK=1)
+
 	# Forward these environment variables into the sandbox when set.
 	local env_name
 	for env_name in \
@@ -139,17 +160,6 @@ run-sandbox() {
 		[[ -n "${(P)env_name}" ]] || continue
 		bwrap_args+=(--setenv "$env_name" "${(P)env_name}")
 	done
-
-	local -a sandlock_supervisor_args=(
-		--max-processes 512
-	)
-	local -a sandlock_env_args=()
-	local -a sandlock_file_system_args=(
-		--fs-write "$HOME"
-		--fs-write /dev
-		--fs-write /proc
-		--fs-write /tmp
-	)
 
 	# gai.conf and nsswitch.conf are needed in a network-free sandbox for
 	# programs that serve on its own loopback.
@@ -175,9 +185,9 @@ run-sandbox() {
 	local -i allow_unsafe_dns=0
 	local -i allow_unsafe_https=0
 
-	local -a env_assignments=()
-
 	local allow_project_bind=bind-read
+
+	local -a env_assignments=()
 
 	while (( $# > 0 ))
 	do
@@ -387,7 +397,10 @@ run-sandbox() {
 				--
 		)
 		set-up-sandbox
-	else
+	elif (( outer_sandlock ))
+	then
+		# An outer supervisor already owns the seccomp listener. Starting
+		# another one would fail.
 		sandlock_supervisor_args=(--no-supervisor)
 	fi
 
