@@ -105,7 +105,14 @@ run-sandbox() {
 		--dev /dev
 		--proc /proc
 		--tmpfs /tmp
-		--bind "$tmp_path" /tmp
+		--bind "$tmp_path/tmp" /tmp
+
+		# An initially empty home directory, so that programs can write
+		# wherever they expect to without exposing the real home directory,
+		# which may contain sensitive information (e.g., credentials in
+		# ~/.config). Later binds mount real files over it as needed.
+		# Contents persist across sandbox restarts but not across reboots.
+		--bind "$tmp_path/home" "$HOME"
 	)
 
 	# Forward these environment variables into the sandbox when set.
@@ -134,6 +141,7 @@ run-sandbox() {
 	)
 	local -a sandlock_env_args=()
 	local -a sandlock_file_system_args=(
+		--fs-write "$HOME"
 		--fs-write /dev
 		--fs-write /proc
 		--fs-write /tmp
@@ -459,7 +467,12 @@ get-blocked-paths() {
 }
 
 set-up-sandbox() {
-	mkdir --parents "$tmp_path"
+	mkdir --parents "$tmp_path/home" "$tmp_path/tmp"
+
+	# The virtual home collects private data (shell history, browser
+	# profiles), so keep it out of reach of other local users.
+	chmod 700 "$tmp_path"
+
 	echo "(Access blocked by sandbox: file may contain sensitive information)" \
 		> "$stub_path"
 }
