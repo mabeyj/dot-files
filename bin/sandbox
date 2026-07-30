@@ -20,6 +20,20 @@ usage() {
 	      --allow-https "POST example.com/records/*/edit"
 	      --allow-https "* example.com"
 
+	  --allow-localhost <ports>
+	    Allow serving on loopback on the given ports, specified as
+	    a comma-separated list of numbers or ranges.
+
+	    By default, Sandlock denies all TCP binds and connects. When HTTP and
+	    DNS are fully restricted, the TCP restrictions are dropped entirely
+	    (<ports> is ignored and can be arbitrary) because the sandbox has
+	    a private network namespace. Otherwise, only the given ports can be
+	    bound.
+
+	    Examples:
+	      --allow-localhost 9876
+	      --allow-localhost 8000-8080,9876
+
 	  --allow-unsafe-dns
 	    Allow DNS lookups for any host.
 	    WARNING: This is vulnerable to data exfiltration.
@@ -187,6 +201,7 @@ run-sandbox() {
 
 	local allow_project_bind=bind-read
 
+	local -a allow_localhost_ports=()
 	local -a env_assignments=()
 
 	while (( $# > 0 ))
@@ -201,6 +216,12 @@ run-sandbox() {
 				check-enough-args 2 "$@" || return 1
 				allow_network=1
 				sandlock_supervisor_args+=(--http-allow "$2")
+				shift 2
+				;;
+
+			--allow-localhost)
+				check-enough-args 2 "$@" || return 1
+				allow_localhost_ports+=("$2")
 				shift 2
 				;;
 
@@ -291,6 +312,35 @@ run-sandbox() {
 			/etc/ca-certificates \
 			/etc/resolv.conf \
 			/etc/ssl
+	fi
+
+	# Sandlock denies every TCP bind and connect by default, so a server on
+	# loopback needs those relaxed. How depends on the network options.
+	#
+	# Without a network option, the sandbox has a private network namespace, so
+	# the TCP protection is dropped: it can only ever reach its own loopback.
+	# This is also the only mode in which Chrome runs, because --net-allow (and
+	# every other network policy flag) switches on the supervisor's network
+	# interception, which refuses loopback connects and fails
+	# sendmsg(SCM_CREDENTIALS), crashing Chrome during Crashpad startup.
+	#
+	# With a network option, the host network namespace is shared, so access is
+	# granted per port instead of dropping the protection.
+	if (( ${#allow_localhost_ports} ))
+	then
+		if (( allow_network ))
+		then
+			local localhost_ports
+			for localhost_ports in "${allow_localhost_ports[@]}"
+			do
+				sandlock_supervisor_args+=(
+					--net-allow "127.0.0.1:$localhost_ports"
+					--net-allow-bind "$localhost_ports"
+				)
+			done
+		else
+			sandlock_supervisor_args+=(--disable net-tcp)
+		fi
 	fi
 
 	if (( allow_unsafe_dns ))
