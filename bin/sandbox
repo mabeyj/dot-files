@@ -63,6 +63,21 @@ usage() {
 	  --bind-read <path>
 	    Same as --bind, but read only.
 
+	Sandbox layer options:
+
+	  --no-sandlock
+	    Run under Bubblewrap only, without Sandlock.
+
+	    The sandbox loses its ability to restrict the network and syscalls.
+	    Bubblewrap still provides the mount namespace and file system
+	    restrictions, including stub binds to conceal blocked paths.
+
+	    This is needed by programs such as Chrome that crash due to certain
+	    syscalls being blocked.
+
+	    A sandbox nested inside a --no-sandlock sandbox can still enable
+	    Sandlock and apply its own network restrictions.
+
 	Environment variable options:
 
 	  --env <name> <value>
@@ -85,15 +100,20 @@ usage() {
 
 	  Sandboxes can be nested with some limitations.
 
-	  A nested sandbox will be subject to the network configuration of its
-	  outermost sandbox and cannot be further restricted.
+	  The nested sandbox will inherit the file system of its parent sandbox. If
+	  the nested sandbox uses Sandlock, it will be without any permission by
+	  default, and you must rebind files and directories to give access. These
+	  binds cannot be more permissive than those on its parent sandbox.
 
-	  It will inherit the file system of its parent sandbox, except without any
-	  permissions by default. You must rebind all files and directories to the
-	  nested sandbox, and these binds cannot be more permissive than those on
-	  its parent sandbox.
+	  There can only be one Sandlock supervisor, owned by the outermost Sandlock
+	  layer, which controls network and seccomp restrictions. If a supervisor
+	  already exists, the nested sandbox is subject to the network restrictions
+	  of the supervisor and cannot be restricted further. If there is no
+	  supervisor yet, then the nested sandbox can set its own network
+	  restrictions.
 
-	  It will inherit all environment variables set on its parent sandbox.
+	  The nested sandbox will inherit all environment variables set on its
+	  parent sandbox.
 	EOF
 }
 
@@ -150,11 +170,6 @@ run-sandbox() {
 		--fs-write /tmp
 	)
 
-	# Tell nested sandboxes that a supervisor already owns the seccomp listener.
-	# Set on both layers so the marker survives whichever one actually runs.
-	bwrap_args+=(--setenv SANDBOX_SANDLOCK 1)
-	sandlock_env_args+=(--env SANDBOX_SANDLOCK=1)
-
 	# Forward these environment variables into the sandbox when set.
 	local env_name
 	for env_name in \
@@ -198,6 +213,7 @@ run-sandbox() {
 	local -i allow_npm=0
 	local -i allow_unsafe_dns=0
 	local -i allow_unsafe_https=0
+	local -i use_sandlock=1
 
 	local allow_project_bind=bind-read
 
@@ -275,6 +291,11 @@ run-sandbox() {
 				shift 2
 				;;
 
+			--no-sandlock)
+				use_sandlock=0
+				shift
+				;;
+
 			--env)
 				check-enough-args 3 "$@" || return 1
 				env_assignments+=("$2=$3")
@@ -297,6 +318,15 @@ run-sandbox() {
 				;;
 		esac
 	done
+
+	if (( use_sandlock ))
+	then
+		# Tell nested sandboxes that a supervisor already owns the seccomp
+		# listener. Set on both layers so the marker survives whichever one
+		# actually runs.
+		bwrap_args+=(--setenv SANDBOX_SANDLOCK 1)
+		sandlock_env_args+=(--env SANDBOX_SANDLOCK=1)
+	fi
 
 	if (( allow_network ))
 	then
@@ -413,7 +443,9 @@ run-sandbox() {
 	fi
 
 	# --env is applied through whichever layer actually runs: bwrap when this is
-	# the outermost sandbox and Sandlock when nested under one.
+	# the outermost sandbox, Sandlock when nested under one, and a plain env
+	# prefix when neither layer is left to carry it.
+	local -a env_prefix=()
 	local env_assignment
 	if (( ! nested ))
 	then
@@ -423,11 +455,15 @@ run-sandbox() {
 				--setenv "${env_assignment%%=*}" "${env_assignment#*=}"
 			)
 		done
-	else
+	elif (( use_sandlock ))
+	then
 		for env_assignment in "${env_assignments[@]}"
 		do
 			sandlock_env_args+=(--env "$env_assignment")
 		done
+	elif (( ${#env_assignments} ))
+	then
+		env_prefix=(env "${env_assignments[@]}")
 	fi
 
 	local -a cmd=()
@@ -454,14 +490,19 @@ run-sandbox() {
 		sandlock_supervisor_args=(--no-supervisor)
 	fi
 
-	cmd+=(
-		sandlock
-			run
-			"${sandlock_supervisor_args[@]}"
-			"${sandlock_env_args[@]}"
-			"${sandlock_file_system_args[@]}"
-			--
-	)
+	if (( use_sandlock ))
+	then
+		cmd+=(
+			sandlock
+				run
+				"${sandlock_supervisor_args[@]}"
+				"${sandlock_env_args[@]}"
+				"${sandlock_file_system_args[@]}"
+				--
+		)
+	fi
+
+	cmd+=("${env_prefix[@]}")
 
 	if (( $# == 0 ))
 	then
