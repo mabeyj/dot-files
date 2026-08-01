@@ -34,6 +34,13 @@ usage() {
 	      --allow-localhost 9876
 	      --allow-localhost 8000-8080,9876
 
+	  --allow-network
+	    Allow unrestricted network access.
+	    WARNING: This is vulnerable to data exfiltration.
+
+	    Intended for use with --no-sandlock, where no network restriction can be
+	    enforced anyway. Prefer the restrictive options otherwise.
+
 	  --allow-unsafe-dns
 	    Allow DNS lookups for any host.
 	    WARNING: This is vulnerable to data exfiltration.
@@ -213,6 +220,7 @@ run-sandbox() {
 	local -i allow_npm=0
 	local -i allow_unsafe_dns=0
 	local -i allow_unsafe_https=0
+	local -i network_restricted=0
 	local -i use_sandlock=1
 
 	local allow_project_bind=bind-read
@@ -231,6 +239,7 @@ run-sandbox() {
 			--allow-https)
 				check-enough-args 2 "$@" || return 1
 				allow_network=1
+				network_restricted=1
 				sandlock_supervisor_args+=(--http-allow "$2")
 				shift 2
 				;;
@@ -239,6 +248,11 @@ run-sandbox() {
 				check-enough-args 2 "$@" || return 1
 				allow_localhost_ports+=("$2")
 				shift 2
+				;;
+
+			--allow-network)
+				allow_network=1
+				shift
 				;;
 
 			--allow-root)
@@ -266,12 +280,14 @@ run-sandbox() {
 
 			--allow-unsafe-dns)
 				allow_network=1
+				network_restricted=1
 				allow_unsafe_dns=1
 				shift
 				;;
 
 			--allow-unsafe-https)
 				allow_network=1
+				network_restricted=1
 				allow_unsafe_dns=1
 				allow_unsafe_https=1
 				shift
@@ -326,6 +342,9 @@ run-sandbox() {
 		# actually runs.
 		bwrap_args+=(--setenv SANDBOX_SANDLOCK 1)
 		sandlock_env_args+=(--env SANDBOX_SANDLOCK=1)
+	elif (( network_restricted ))
+	then
+		echo "[sandbox] WARNING: Network restrictions are not enforced without Sandlock" >&2
 	fi
 
 	if (( allow_network ))
