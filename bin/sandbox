@@ -126,6 +126,12 @@ usage() {
 
 run-sandbox() {
 	local -r sandlock_ca_path=/tmp/sandlock-ca.pem
+
+	local -ra ca_bundle_paths=(
+		/etc/ca-certificates/extracted/tls-ca-bundle.pem
+		/etc/ssl/cert.pem
+		/etc/ssl/certs/ca-certificates.crt
+	)
 	local -r high_memory_limit=3G
 	local -r max_memory_limit=4G
 
@@ -353,9 +359,18 @@ run-sandbox() {
 		sandlock_supervisor_args+=(
 			--env NODE_EXTRA_CA_CERTS=$sandlock_ca_path
 			--http-ca-out $sandlock_ca_path
-			--http-inject-ca /etc/ssl/certs/ca-certificates.crt
 			--http-port 443
 		)
+
+		# Sandlock's CA injection matches the literal path a client opens and
+		# does not follow symlinks, so every trust bundle a client might read
+		# needs its own injection.
+		local ca_bundle_path
+		for ca_bundle_path in "${ca_bundle_paths[@]}"
+		do
+			[[ -e "$ca_bundle_path" ]] || continue
+			sandlock_supervisor_args+=(--http-inject-ca "$ca_bundle_path")
+		done
 
 		bind-read \
 			/etc/ca-certificates \
