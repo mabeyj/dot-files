@@ -1,0 +1,67 @@
+#!/bin/zsh
+
+# Runs Claude Code inside the sandbox, in one of two modes:
+#
+#   claude          Sandlock enforces an HTTPS allowlist. Headless Firefox
+#                   works for frontend tests. Chrome crashes due to Sandlock
+#                   blocking certain syscalls.
+#
+#   claude --loose  No Sandlock and unrestricted network access. Bubblewrap
+#                   still provides the mount namespace, file system
+#                   restrictions, and stub binds to conceal certain files.
+#                   Needed for Chrome.
+#                   WARNING: This is vulnerable to data exfiltration.
+#
+# A sandbox nested inside a loose one may still enable Sandlock and impose its
+# own network restrictions.
+#
+# Machine-specific options go in the `SANDBOX_CLAUDE_EXTRA_ARGS` environment
+# variable. It is split into words like a command line and applied in both
+# modes.
+#
+#   export SANDBOX_CLAUDE_EXTRA_ARGS=\
+#       "--allow-localhost 9876 --bind-read /opt/google/chrome"
+
+local -a sandbox_args=(
+	--allow-npm
+	--allow-project
+	--allow-root
+	--bind "$HOME/.cache/claude-cli-nodejs"
+	--bind "$HOME/.claude"
+	--bind-read /opt/claude-code
+	--env CLAUDE_CONFIG_DIR "$HOME/.claude"
+)
+
+if [[ "$1" == --loose ]]
+then
+	shift
+	sandbox_args+=(
+		--allow-network
+		--no-sandlock
+	)
+else
+	sandbox_args+=(
+		--allow-https "* api.anthropic.com"
+		--allow-https "* claude.ai"
+		--allow-https "* claude.com"
+		--allow-https "* code.claude.com"
+		--allow-https "* console.anthropic.com"
+		--allow-https "* docs.anthropic.com"
+		--allow-https "* downloads.claude.ai"
+		--allow-https "* mcp-proxy.anthropic.com"
+		--allow-https "* platform.claude.com"
+		--allow-https "* support.claude.com"
+		--allow-https "* www.anthropic.com"
+		--allow-https "GET github.com"
+		--allow-https "GET raw.githubusercontent.com"
+		--allow-https "POST github.com/*/git-upload-pack"
+		--allow-unsafe-https
+	)
+fi
+
+# `(z)` splits into shell words, honouring quotes, and `(Q)` then strips one
+# level of quoting, so an option's argument can contain spaces when it is
+# quoted.
+sandbox_args+=(${(Q)${(z)SANDBOX_CLAUDE_EXTRA_ARGS}})
+
+exec sandbox "${sandbox_args[@]}" -- /usr/bin/claude "$@"

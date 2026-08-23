@@ -1,3 +1,4 @@
+CLAUDE=~/.local/bin/claude
 GITCONFIG=~/.gitconfig
 GITIGNORE=~/.gitignore
 SANDBOX=~/.local/bin/sandbox
@@ -6,14 +7,17 @@ ZSHRC=~/.zshrc
 ZSHRC_LOCAL=$(ZSHRC).local
 
 .PHONY: install
-install: $(GITCONFIG) $(GITIGNORE) $(SANDBOX) $(TMUXCONF) $(ZSHRC)
+install: $(CLAUDE) $(GITCONFIG) $(GITIGNORE) $(SANDBOX) $(TMUXCONF) $(ZSHRC)
 
 $(GITCONFIG):
 	echo "[include]" > $@
 	echo "	path = $(PWD)/.gitconfig" >> $@
 
+$(CLAUDE): bin/claude
 $(GITIGNORE): .gitignore
 $(SANDBOX): bin/sandbox
+
+$(CLAUDE) $(GITIGNORE) $(SANDBOX):
 	cp $^ $@
 
 $(TMUXCONF): Makefile
