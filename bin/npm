@@ -1,0 +1,5 @@
+#!/bin/zsh
+
+# Runs npm inside a sandbox.
+
+exec sandbox --allow-npm -- /usr/bin/npm "$@"

@@ -1,13 +1,15 @@
-CLAUDE=~/.local/bin/claude
 GITCONFIG=~/.gitconfig
 GITIGNORE=~/.gitignore
-SANDBOX=~/.local/bin/sandbox
 TMUXCONF=~/.tmux.conf
 ZSHRC=~/.zshrc
 ZSHRC_LOCAL=$(ZSHRC).local
 
+CLAUDE=~/.local/bin/claude
+NPM=~/.local/bin/npm
+SANDBOX=~/.local/bin/sandbox
+
 .PHONY: install
-install: $(CLAUDE) $(GITCONFIG) $(GITIGNORE) $(SANDBOX) $(TMUXCONF) $(ZSHRC)
+install: $(CLAUDE) $(GITCONFIG) $(GITIGNORE) $(NPM) $(SANDBOX) $(TMUXCONF) $(ZSHRC)
 
 $(GITCONFIG):
 	echo "[include]" > $@
@@ -15,9 +17,10 @@ $(GITCONFIG):
 
 $(CLAUDE): bin/claude
 $(GITIGNORE): .gitignore
+$(NPM): bin/npm
 $(SANDBOX): bin/sandbox
 
-$(CLAUDE) $(GITIGNORE) $(SANDBOX):
+$(CLAUDE) $(GITIGNORE) $(NPM) $(SANDBOX):
 	cp $^ $@
 
 $(TMUXCONF): Makefile
