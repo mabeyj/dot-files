@@ -156,9 +156,6 @@ zstyle ":completion:*" menu select
 
 setopt auto_cd
 
-# Disable terminal shortcuts so Vim's Command-T CTRL+S shortcut works.
-stty -ixon
-
 # Tool preferences
 export EDITOR=vim
 export PAGER=less
