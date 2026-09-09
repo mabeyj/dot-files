@@ -1,7 +1,11 @@
 # Headless browsers under the sandbox
 
-Measured on Arch Linux, kernel 7.1.5, Landlock ABI v9, `sandlock 0.8.5`,
-Google Chrome 150.0.7871.186 and the system Firefox.
+Measured on Arch Linux, kernel 7.1.8, Landlock ABI v9, `sandlock 0.8.6`,
+Google Chrome 152.0.7977.64 and the system Firefox. The Chrome result
+reproduces unchanged from the original measurements on `sandlock 0.8.5` and
+Chrome 150, taken on different hardware. On `sandlock 0.8.7` the four Crashpad
+syscall probes below give identical results in every configuration; Chrome
+itself was not re-run.
 
 Summary: **Firefox works under Sandlock; Chrome does not, in any
 configuration.** Running Chrome requires `--no-sandlock`, which leaves
@@ -25,8 +29,9 @@ diagnostic.
 Crashpad on Linux needs `sendmsg(SCM_CREDENTIALS)`, `ptrace`,
 `prctl(PR_SET_PTRACER)` and `process_vm_readv`. Sandlock denies all four.
 `prctl(PR_SET_PTRACER)` is denied unconditionally by the seccomp blocklist
-regardless of network mode, so even the one configuration where loopback
-networking fully works still fails here.
+regardless of network mode, so every configuration fails here, including the
+network-free one where `SCM_CREDENTIALS` is allowed and the networked one where
+loopback fully works.
 
 There is **no Chrome-side workaround**: `InitializeCrashpad()` runs
 unconditionally in the browser process, `--disable-breakpad` and
@@ -37,15 +42,34 @@ Two cores taken hours apart, under different sandbox configurations, crash at
 the **identical offset `chrome+0x5e96f4e`**. Relaxing `SCM_CREDENTIALS` alone
 only moves the failure to the next gate in the same function.
 
-## Firefox: loopback connect refused
+Re-confirmed on Chrome 152 under `sandlock 0.8.6`, at `chrome+0x4eeba3e` — a
+different offset, as expected across builds, but the same crash. The core again
+holds an `int3; ud2` at the trap site, and Crashpad's argv strings
+(`https://clients2.google.com/cr/report`, `--monitor-self`,
+`--monitor-self-annotation=ptype=crashpad-handler`) sit in **anonymous** heap
+pages rather than the binary's file-backed mappings, so they were assembled at
+runtime: the process reached `StartHandler()`, built the handler's argv, and
+then trapped.
 
-Under a Sandlock configuration with network policy active, a test runner such
-as Karma binds its port successfully, but nothing inside the sandbox can
-connect to it, so the browser never checks in. The runner waits out its capture
-timeout and reports something like "Firefox have not captured in 60000 ms",
-which reads as a hang rather than a refusal.
+`systemd-coredump` did not dump the stack pages, so frames above the trap are
+unrecoverable and gdb's `find` over `$rsp` returns nothing. Locating those
+strings instead means parsing the core's `PT_LOAD` headers and mapping file
+offsets back to virtual addresses.
 
-The cause is the supervisor, not Firefox — see `network-layers.md`.
+## Firefox: needs loopback explicitly allowed
+
+Firefox itself is fine. What used to look like a Firefox hang was the
+supervisor refusing the loopback connect, so a test runner such as Karma bound
+its port successfully but nothing inside the sandbox could reach it, and the
+runner waited out its capture timeout reporting something like "Firefox have
+not captured in 60000 ms".
+
+The fix is to pass `--allow-localhost <ports>`, which emits the `--net-allow`
+rule the supervisor needs for loopback. Verified end to end: headless Firefox
+screenshotting a `python3 -m http.server` on the sandbox's own loopback, under
+`--allow-https ... --allow-localhost 9876`, with network restrictions active.
+Without `--allow-localhost` the connect is still refused — see
+`network-layers.md`.
 
 ## Core dumps accumulate invisibly
 

@@ -5,27 +5,59 @@ are not obvious from the option names.
 
 ## The measurement matrix
 
-Measured with `scripts/sandbox-diag.py` across sandbox configurations:
+Measured with `scripts/sandbox-diag.py` across sandbox configurations, on
+`sandlock 0.8.7`. Every row reproduces the `0.8.6` result unchanged:
 
 | Configuration | TCP bind | loopback connect | SCM_CREDENTIALS |
 |---|---|---|---|
 | network-free | `EACCES` | `EACCES` | OK |
-| network, no `--net-allow` | OK | `ECONNREFUSED` | `EPERM` |
-| network + `--net-allow` | OK | `ECONNREFUSED` | `EPERM` |
+| network, no loopback `--net-allow` | OK | `ECONNREFUSED` | `EPERM` |
+| network + `--net-allow 127.0.0.1:<ports>` | OK | OK | `EPERM` |
 | network-free + `--net-allow-bind` | OK (listed ports) | `EACCES` | OK |
 | network-free + `--disable net-tcp` | OK | OK | OK |
+| network + `--net-deny` (denylist mode) | OK | OK | `EPERM` |
 
 Conclusions:
 
 - Landlock denies TCP bind **and** connect by default. `--net-allow-bind`
-  relaxes bind only; `--disable net-tcp` relaxes both.
+  relaxes bind only, `--disable net-tcp` relaxes both, and `--net-allow`
+  relaxes connect for the endpoints it names.
 - **Any** Sandlock network policy flag — `--net-allow` or the `--http-*` set —
-  switches on the supervisor's syscall interception. The supervisor then
-  refuses loopback connects with `ECONNREFUSED` and fails
-  `sendmsg(SCM_CREDENTIALS)` with `EPERM`, neither of which is implied by the
-  flag being asked for.
-- The last row is the only configuration where a local test server works
-  end to end. Chrome still fails there, on `prctl(PR_SET_PTRACER)`.
+  switches on the supervisor's syscall interception, which then fails
+  `sendmsg(SCM_CREDENTIALS)` with `EPERM`. That is not implied by the flag
+  being asked for, and it is what makes Chrome unrunnable in every networked
+  configuration.
+- Once the supervisor is running, **loopback is just another destination**: it
+  needs a `--net-allow` rule of its own. Without one the connect is refused
+  with `ECONNREFUSED`, which reads like nothing is listening rather than like a
+  policy denial. With one, a local server works end to end — this is what
+  `--allow-localhost` emits alongside a network option, and headless Firefox
+  against a local server passes in that configuration.
+- The `--net-deny` denylist mode permits loopback with no rule at all, but it
+  is default-allow outbound and mutually exclusive with `--net-allow`, so it
+  trades the allowlist away to get there.
+
+## UDP is gated at socket() or at sendto(), depending on the rules
+
+Since `sandlock 0.8.7`, `socket(SOCK_DGRAM)` is denied with `EPERM` only when
+no network rule exists at all. With any network option in `bin/sandbox`,
+including a bare `--allow-https`, the socket is created and the supervisor
+judges each `sendto` destination instead: an uncovered one fails with
+`ECONNREFUSED`, the same errno as an uncovered loopback TCP connect. Upstream
+made the change so glibc's address-sorting probes in `getaddrinfo` stop
+breaking name resolution under TCP-only rule sets. Two consequences:
+
+- `--allow-unsafe-dns` is what allows the `sendto` to `127.0.0.53:53`; without
+  it a resolver query now fails at `sendto`, not at `socket`.
+- A `--net-allow 127.0.0.1:<port>` rule, as emitted by `--allow-localhost`,
+  also permits UDP `sendto` to that endpoint.
+
+A bare `--allow-network` under Sandlock uses the last row: Sandlock has no
+allow-everything switch, so `bin/sandbox` emits `--net-deny 240.0.0.0/4`, a
+reserved and unroutable range, to get default-allow TCP and UDP with no HTTPS
+interception. Loopback needs nothing further in that mode. Any restrictive
+network option given alongside takes precedence and the usual allowlist
+configuration is emitted instead.
 
 This is why `--allow-localhost` behaves differently per mode: network-free it
 emits `--disable net-tcp`, which is safe because bwrap gives the sandbox a
@@ -33,19 +65,20 @@ private network namespace and it can only ever reach its own loopback;
 network-enabled it emits `--net-allow "127.0.0.1:<ports>"` plus
 `--net-allow-bind <ports>`, since `--disable net-tcp` would then be a real hole.
 
-## The /etc/hosts trap
+## The /etc/hosts trap, fixed in 0.8.6
 
-`/etc/hosts` is bound bwrap-only, as a `--ro-bind` in `bwrap_args`, and **must
-not** go through `bind-read`. `bind-read` also emits `--fs-read` to Sandlock,
-and Sandlock mounts its own `/etc/hosts` when networking is enabled, after
-which adding a Landlock rule for that path fails with
+Sandlock still mounts its own `/etc/hosts` when networking is enabled — it
+appears inside the sandbox carrying an address entry per allowlisted host — but
+adding a Landlock rule for that path on top of it no longer fails. Through
+`sandlock 0.8.5` it aborted the run with
 
     landlock error: add path rule for "/etc/hosts":
     File descriptor in bad state (os error 77)
 
-which kills the sandbox outright. It only reproduces when networking is on, so
-network-free tests pass and the breakage surfaces somewhere unrelated, such as
-the first `npm` command.
+and so `/etc/hosts` had to be a bwrap-only `--ro-bind`, kept out of
+`bind-read`. That constraint is lifted. `bin/sandbox` still binds it
+bwrap-only, which remains correct but is no longer required, and its comment
+there still describes the old failure.
 
 `/etc/gai.conf` and `/etc/nsswitch.conf` are ordinary `bind-read` entries and
 are bound unconditionally; `/etc/resolv.conf`, `/etc/ssl` and

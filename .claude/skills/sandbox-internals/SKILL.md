@@ -25,25 +25,25 @@ The errno identifies the layer, and that is usually the whole diagnosis:
 |---|---|
 | `EACCES` | Landlock denied it |
 | `EPERM` | the seccomp blocklist denied it |
-| `ECONNREFUSED` on loopback | the supervisor intercepted it |
+| `ECONNREFUSED` on loopback, or on a UDP `sendto` | the supervisor intercepted it, and no `--net-allow` rule covers it |
 | `ENOSYS` | seccomp, on a syscall the filter stubs out |
 
 ## Headline findings
 
+Verified against `sandlock 0.8.7`.
+
 - **Chrome cannot run under Sandlock at all.** Its Crashpad handler needs four
   syscalls that Sandlock denies, and it aborts with SIGTRAP and no output
-  whatsoever. Firefox works. See `reference/headless-browsers.md`.
-- **Any Sandlock network-policy flag activates the supervisor**, and the
-  supervisor refuses loopback connections with `ECONNREFUSED` and fails
-  `sendmsg(SCM_CREDENTIALS)` with `EPERM`. This breaks local test servers. See
-  `reference/network-layers.md`.
-- **`/etc/hosts` must be a bwrap-only `--ro-bind`**, never routed through
-  `bind-read`. Sandlock mounts its own when networking is on, and a Landlock
-  rule for that path then fails with errno 77 and kills the sandbox. Only
-  reproduces with networking enabled.
-- **CA injection matches the literal path opened, not the resolved file**, so
-  every trust bundle path has to be injected separately. See
-  `reference/tls-trust.md`.
+  whatsoever. Firefox works, including against a server on the sandbox's own
+  loopback. See `reference/headless-browsers.md`.
+- **Any Sandlock network-policy flag activates the supervisor**, which fails
+  `sendmsg(SCM_CREDENTIALS)` with `EPERM`. Once it is running, loopback
+  connects need an explicit `--net-allow` rule covering them, or they are
+  refused with `ECONNREFUSED`. See `reference/network-layers.md`.
+- **CA injection follows symlinks since `sandlock 0.8.7`**, so `bin/sandbox`
+  injects only the canonical bundle. Earlier versions matched the literal path
+  opened and needed every bundle path injected. Python 3.14 still rejects the
+  MITM leaf certificates. See `reference/tls-trust.md`.
 
 ## Investigating
 

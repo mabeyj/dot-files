@@ -15,10 +15,14 @@ Run under several sandbox configurations to isolate which layer breaks what:
   D) sandbox --allow-project --allow-localhost 9876 -- python3 sandbox-diag.py
        network-free plus loopback TCP
 
+  E) sandbox --allow-project --allow-https "GET example.com" --allow-localhost 9876 \
+       -- python3 sandbox-diag.py
+       network on AND loopback explicitly allowed
+
 Reports exact errno for every failure, which is what distinguishes the layers:
 Landlock denies bind/connect with EACCES, the seccomp blocklist denies with
-EPERM, and the Sandlock supervisor refuses loopback connects with
-ECONNREFUSED.
+EPERM, and the Sandlock supervisor refuses loopback connects with ECONNREFUSED
+unless a --net-allow rule covers them.
 
 The port probed defaults to 9876 and can be overridden with $PROBE_PORT.
 """

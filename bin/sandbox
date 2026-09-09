@@ -35,7 +35,9 @@ usage() {
 	      --allow-localhost 8000-8080,9876
 
 	  --allow-network
-	    Allow unrestricted network access.
+	    Allow unrestricted network access. Under Sandlock, TCP and UDP are
+	    unrestricted and HTTPS is not intercepted. Any restrictive network
+	    option given alongside takes precedence.
 	    WARNING: This is vulnerable to data exfiltration.
 
 	    Intended for use with --no-sandlock, where no network restriction can be
@@ -127,11 +129,7 @@ usage() {
 run-sandbox() {
 	local -r sandlock_ca_path=/tmp/sandlock-ca.pem
 
-	local -ra ca_bundle_paths=(
-		/etc/ca-certificates/extracted/tls-ca-bundle.pem
-		/etc/ssl/cert.pem
-		/etc/ssl/certs/ca-certificates.crt
-	)
+	local -r ca_bundle_path=/etc/ca-certificates/extracted/tls-ca-bundle.pem
 	local -r high_memory_limit=3G
 	local -r max_memory_limit=4G
 
@@ -166,9 +164,9 @@ run-sandbox() {
 		# Contents persist across sandbox restarts but not across reboots.
 		--bind "$tmp_path/home" "$HOME"
 
-		# Sandlock mounts its own /etc/hosts, so this gets a bwrap bind only.
-		# Passing --fs-read for the path makes Landlock fail to add the rule
-		# once Sandlock has mounted over it.
+		# Only a mount point is needed here: Sandlock mounts its own /etc/hosts
+		# over it, readable without a Landlock rule, so this stays out of
+		# bind-read.
 		--ro-bind /etc/hosts /etc/hosts
 	)
 
@@ -227,6 +225,7 @@ run-sandbox() {
 	local -i allow_unsafe_dns=0
 	local -i allow_unsafe_https=0
 	local -i network_restricted=0
+	local -i http_restricted=0
 	local -i use_sandlock=1
 
 	local allow_project_bind=bind-read
@@ -246,6 +245,7 @@ run-sandbox() {
 				check-enough-args 2 "$@" || return 1
 				allow_network=1
 				network_restricted=1
+				http_restricted=1
 				sandlock_supervisor_args+=(--http-allow "$2")
 				shift 2
 				;;
@@ -280,6 +280,8 @@ run-sandbox() {
 
 			--allow-npm)
 				allow_network=1
+				network_restricted=1
+				http_restricted=1
 				allow_npm=1
 				shift
 				;;
@@ -294,6 +296,7 @@ run-sandbox() {
 			--allow-unsafe-https)
 				allow_network=1
 				network_restricted=1
+				http_restricted=1
 				allow_unsafe_dns=1
 				allow_unsafe_https=1
 				shift
@@ -356,26 +359,29 @@ run-sandbox() {
 	if (( allow_network ))
 	then
 		bwrap_args+=(--share-net)
-		sandlock_supervisor_args+=(
-			--env NODE_EXTRA_CA_CERTS=$sandlock_ca_path
-			--http-ca-out $sandlock_ca_path
-			--http-port 443
-		)
-
-		# Sandlock's CA injection matches the literal path a client opens and
-		# does not follow symlinks, so every trust bundle a client might read
-		# needs its own injection.
-		local ca_bundle_path
-		for ca_bundle_path in "${ca_bundle_paths[@]}"
-		do
-			[[ -e "$ca_bundle_path" ]] || continue
-			sandlock_supervisor_args+=(--http-inject-ca "$ca_bundle_path")
-		done
-
 		bind-read \
 			/etc/ca-certificates \
 			/etc/resolv.conf \
 			/etc/ssl
+	fi
+
+	if (( http_restricted ))
+	then
+		# The other trust bundle paths (/etc/ssl/cert.pem,
+		# /etc/ssl/certs/ca-certificates.crt) are symlinks to this one, and
+		# Sandlock resolves symlinks when matching the path a client opens.
+		sandlock_supervisor_args+=(
+			--env NODE_EXTRA_CA_CERTS=$sandlock_ca_path
+			--http-ca-out $sandlock_ca_path
+			--http-inject-ca $ca_bundle_path
+			--http-port 443
+		)
+	elif (( allow_network && ! network_restricted ))
+	then
+		# Sandlock has no allow-everything switch: with no rules at all,
+		# Landlock denies TCP and seccomp denies UDP sockets. Denylist mode is
+		# default-allow, so deny only an unroutable range (reserved class E).
+		sandlock_supervisor_args+=(--net-deny 240.0.0.0/4)
 	fi
 
 	# Sandlock denies every TCP bind and connect by default, so a server on
@@ -388,11 +394,12 @@ run-sandbox() {
 	# interception, which refuses loopback connects and fails
 	# sendmsg(SCM_CREDENTIALS), crashing Chrome during Crashpad startup.
 	#
-	# With a network option, the host network namespace is shared, so access is
-	# granted per port instead of dropping the protection.
+	# With a restrictive network option, the host network namespace is shared,
+	# so access is granted per port instead of dropping the protection. With
+	# --allow-network alone, denylist mode already permits loopback.
 	if (( ${#allow_localhost_ports} ))
 	then
-		if (( allow_network ))
+		if (( network_restricted ))
 		then
 			local localhost_ports
 			for localhost_ports in "${allow_localhost_ports[@]}"
@@ -402,7 +409,8 @@ run-sandbox() {
 					--net-allow-bind "$localhost_ports"
 				)
 			done
-		else
+		elif (( ! allow_network ))
+		then
 			sandlock_supervisor_args+=(--disable net-tcp)
 		fi
 	fi
