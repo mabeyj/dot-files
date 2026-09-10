@@ -1,5 +1,7 @@
-GITCONFIG=~/.gitconfig
-GITIGNORE=~/.gitignore
+GIT_DIR=~/.config/git
+
+GIT_CONFIG=$(GIT_DIR)/config
+GIT_IGNORE=$(GIT_DIR)/ignore
 TMUXCONF=~/.tmux.conf
 ZSHRC=~/.zshrc
 ZSHRC_LOCAL=$(ZSHRC).local
@@ -9,19 +11,22 @@ NPM=~/.local/bin/npm
 SANDBOX=~/.local/bin/sandbox
 
 .PHONY: install
-install: $(CLAUDE) $(GITCONFIG) $(GITIGNORE) $(NPM) $(SANDBOX) $(TMUXCONF) $(ZSHRC)
-
-$(GITCONFIG):
-	echo "[include]" > $@
-	echo "	path = $(PWD)/.gitconfig" >> $@
+install: $(CLAUDE) $(GIT_CONFIG) $(GIT_IGNORE) $(NPM) $(SANDBOX) $(TMUXCONF) $(ZSHRC)
 
 $(CLAUDE): bin/claude
-$(GITIGNORE): .gitignore
+$(GIT_IGNORE): .config/git/ignore | $(GIT_DIR)
 $(NPM): bin/npm
 $(SANDBOX): bin/sandbox
 
-$(CLAUDE) $(GITIGNORE) $(NPM) $(SANDBOX):
+$(CLAUDE) $(GIT_IGNORE) $(NPM) $(SANDBOX):
 	cp $^ $@
+
+$(GIT_DIR):
+	mkdir --parents $@
+
+$(GIT_CONFIG): | $(GIT_DIR)
+	echo "[include]" > $@
+	echo "	path = $(PWD)/.config/git/config" >> $@
 
 $(TMUXCONF): Makefile
 	echo "source-file $(PWD)/.tmux.conf" > $@
