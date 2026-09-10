@@ -1,6 +1,7 @@
 GIT_DIR=~/.config/git
 
 GIT_CONFIG=$(GIT_DIR)/config
+GIT_CONFIG_LOCAL=$(GIT_CONFIG).local
 GIT_IGNORE=$(GIT_DIR)/ignore
 TMUXCONF=~/.tmux.conf
 ZSHRC=~/.zshrc
@@ -27,6 +28,7 @@ $(GIT_DIR):
 $(GIT_CONFIG): | $(GIT_DIR)
 	echo "[include]" > $@
 	echo "	path = $(PWD)/.config/git/config" >> $@
+	echo "	path = $(GIT_CONFIG_LOCAL)" >> $@
 
 $(TMUXCONF): Makefile
 	echo "source-file $(PWD)/.tmux.conf" > $@
