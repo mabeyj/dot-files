@@ -1,5 +1,19 @@
 #!/bin/zsh
 
-# Runs npm inside a sandbox.
+# Runs npm inside the sandbox.
+#
+# Extra sandbox options go in the `SANDBOX_NPM_EXTRA_ARGS` environment
+# variable. It is split into words like a command line. This is the only way
+# to relax the sandbox when npm is run by another program, such as makepkg
+# from a build script:
+#
+#   SANDBOX_NPM_EXTRA_ARGS="--bind /some/path" makepkg
 
-exec sandbox --allow-npm -- /usr/bin/npm "$@"
+local -a sandbox_args=(--allow-npm)
+
+# `(z)` splits into shell words, honouring quotes, and `(Q)` then strips one
+# level of quoting, so an option's argument can contain spaces when it is
+# quoted.
+sandbox_args+=(${(Q)${(z)SANDBOX_NPM_EXTRA_ARGS}})
+
+exec sandbox "${sandbox_args[@]}" -- /usr/bin/npm "$@"
