@@ -29,6 +29,11 @@ local -a sandbox_args=(
 	--bind "$HOME/.cache/claude-cli-nodejs"
 	--bind "$HOME/.claude"
 	--bind-read /opt/claude-code
+
+	# Git's default global excludes file, so that Claude ignores the same
+	# untracked files I do when inspecting the repository.
+	--bind-read "${XDG_CONFIG_HOME:-$HOME/.config}/git/ignore"
+
 	--env CLAUDE_CONFIG_DIR "$HOME/.claude"
 )
 
