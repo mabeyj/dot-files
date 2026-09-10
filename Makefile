@@ -25,7 +25,7 @@ $(CLAUDE) $(GIT_IGNORE) $(NPM) $(SANDBOX):
 $(GIT_DIR):
 	mkdir --parents $@
 
-$(GIT_CONFIG): | $(GIT_DIR)
+$(GIT_CONFIG): Makefile | $(GIT_DIR)
 	echo "[include]" > $@
 	echo "	path = $(PWD)/.config/git/config" >> $@
 	echo "	path = $(GIT_CONFIG_LOCAL)" >> $@
