@@ -1,5 +1,9 @@
+CLAUDE_DIR=~/.claude
+CLAUDE_RULES_DIR=$(CLAUDE_DIR)/rules
 GIT_DIR=~/.config/git
 
+CLAUDE_MD=$(CLAUDE_DIR)/CLAUDE.md
+CLAUDE_RULES=$(patsubst claude/%,$(CLAUDE_DIR)/%,$(wildcard claude/rules/*.md))
 GIT_CONFIG=$(GIT_DIR)/config
 GIT_CONFIG_LOCAL=$(GIT_CONFIG).local
 GIT_IGNORE=$(GIT_DIR)/ignore
@@ -12,17 +16,21 @@ NPM=~/.local/bin/npm
 SANDBOX=~/.local/bin/sandbox
 
 .PHONY: install
-install: $(CLAUDE) $(GIT_CONFIG) $(GIT_IGNORE) $(NPM) $(SANDBOX) $(TMUXCONF) $(ZSHRC)
+install: $(CLAUDE) $(CLAUDE_MD) $(CLAUDE_RULES) $(GIT_CONFIG) $(GIT_IGNORE) $(NPM) $(SANDBOX) $(TMUXCONF) $(ZSHRC)
 
 $(CLAUDE): bin/claude
+$(CLAUDE_MD): claude/CLAUDE.md | $(CLAUDE_DIR)
 $(GIT_IGNORE): .config/git/ignore | $(GIT_DIR)
 $(NPM): bin/npm
 $(SANDBOX): bin/sandbox
 
-$(CLAUDE) $(GIT_IGNORE) $(NPM) $(SANDBOX):
+$(CLAUDE) $(CLAUDE_MD) $(GIT_IGNORE) $(NPM) $(SANDBOX):
 	cp $^ $@
 
-$(GIT_DIR):
+$(CLAUDE_RULES_DIR)/%.md: claude/rules/%.md | $(CLAUDE_RULES_DIR)
+	cp $< $@
+
+$(CLAUDE_DIR) $(CLAUDE_RULES_DIR) $(GIT_DIR):
 	mkdir --parents $@
 
 $(GIT_CONFIG): Makefile | $(GIT_DIR)
